@@ -524,13 +524,13 @@ async function sendDailyChallenge() {
     
     for (const user of users) {
       await sendPushNotification(user.pushToken, {
-        title: '🎯 Today\'s Challenge!',
+        title: 'Today\'s Challenge!',
         body: challenge.prompt,
         data: { challengeId: challenge._id.toString() }
       });
     }
 
-    console.log(`✅ Daily challenge sent: ${challenge.prompt}`);
+    console.log(`Daily challenge sent: ${challenge.prompt}`);
   } catch (error) {
     console.error('Error sending daily challenge:', error);
   }
