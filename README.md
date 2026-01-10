@@ -207,3 +207,7 @@ Day 3: Polish, fix bugs, prepare demo
 Focus on MVP first, add stretch goals if time permits!
 📄 License
 MIT License - Built at SBHacks 🚀
+
+hi
+
+67
