@@ -1,0 +1,248 @@
+DailyChallenge Setup Guide 🚀
+Step 1: Create Project Directory
+bashmkdir dailychallenge
+cd dailychallenge
+Step 2: Setup Backend
+Create server directory
+bashmkdir server
+cd server
+Initialize Node.js project
+bashnpm init -y
+Install backend dependencies
+bashnpm install express mongoose bcryptjs jsonwebtoken cors dotenv multer node-cron firebase-admin cloudinary
+npm install --save-dev nodemon
+Create folder structure
+bashmkdir -p src/models src/routes src/middleware src/services src/cron src/controllers src/utils scripts
+Create .env file
+bashtouch .env
+Add to .env:
+PORT=3000
+MONGODB_URI=mongodb://localhost:27017/dailychallenge
+JWT_SECRET=your_super_secret_jwt_key_change_this
+FIREBASE_PROJECT_ID=your_firebase_project_id
+FIREBASE_PRIVATE_KEY=your_firebase_private_key
+FIREBASE_CLIENT_EMAIL=your_firebase_client_email
+CLOUDINARY_CLOUD_NAME=your_cloudinary_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+Update package.json scripts
+Add this to your package.json:
+json"scripts": {
+  "start": "node server.js",
+  "dev": "nodemon server.js"
+}
+Copy all the backend code
+Copy all the server code from the "Backend Framework Code" artifact into the appropriate files:
+
+server.js → root of server folder
+src/models/User.js
+src/models/Challenge.js
+src/models/Submission.js
+src/models/DailyPrompt.js
+src/routes/auth.js
+src/routes/challenges.js
+src/routes/submissions.js
+src/routes/users.js
+src/middleware/auth.js
+src/services/pushNotifications.js
+src/services/imageUpload.js
+src/cron/dailyChallenge.js
+
+Create a script to seed challenges
+Create scripts/seedChallenges.js:
+javascriptconst mongoose = require('mongoose');
+require('dotenv').config();
+
+const Challenge = require('../src/models/Challenge');
+
+const challenges = [
+  { prompt: 'Take a photo with your best friend', category: 'social' },
+  { prompt: 'Show us your lunch', category: 'food' },
+  { prompt: 'Capture your current view', category: 'nature' },
+  { prompt: 'Photo of something blue', category: 'creative' },
+  { prompt: 'Your favorite spot on campus', category: 'nature' },
+  { prompt: 'Something that made you smile today', category: 'random' },
+  { prompt: 'Your study setup', category: 'random' },
+  { prompt: 'A random act of kindness', category: 'social' },
+  { prompt: 'Show us your breakfast', category: 'food' },
+  { prompt: 'Take a selfie with a stranger', category: 'social' },
+];
+
+async function seedChallenges() {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('Connected to MongoDB');
+
+    await Challenge.deleteMany({});
+    await Challenge.insertMany(challenges);
+
+    console.log('✅ Challenges seeded successfully!');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error seeding challenges:', error);
+    process.exit(1);
+  }
+}
+
+seedChallenges();
+Run the seed script
+bashnode scripts/seedChallenges.js
+Start the backend server
+bashnpm run dev
+You should see:
+✅ MongoDB connected
+🚀 Server running on port 3000
+
+Step 3: Setup Frontend
+Go back to root directory
+bashcd ..
+Create Expo app
+bashnpx create-expo-app client
+cd client
+Install frontend dependencies
+bashnpx expo install expo-camera expo-image-picker expo-notifications expo-device expo-status-bar
+npm install @react-navigation/native @react-navigation/stack @react-navigation/bottom-tabs
+npx expo install react-native-screens react-native-safe-area-context
+npm install @react-native-async-storage/async-storage
+npm install axios
+Create folder structure
+bashmkdir -p src/screens src/components src/services src/navigation src/context src/utils
+Create .env file
+bashtouch .env
+Add to .env:
+EXPO_PUBLIC_API_URL=http://localhost:3000/api
+Note: For testing on a physical device, replace localhost with your computer's local IP address (e.g., http://192.168.1.100:3000/api)
+Copy all the frontend code
+Copy all the code from the "Frontend Code" artifact into the appropriate files:
+
+App.js → root of client folder
+src/screens/AuthScreen.js
+src/screens/HomeScreen.js
+src/screens/CameraScreen.js
+src/screens/FeedScreen.js
+src/screens/ProfileScreen.js
+src/components/ChallengeCard.js
+src/components/Timer.js
+src/components/SubmissionCard.js
+src/services/api.js
+src/services/auth.js
+src/services/notifications.js
+src/navigation/AppNavigator.js
+src/context/AuthContext.js
+src/utils/storage.js
+src/utils/constants.js
+
+Start Expo
+bashnpx expo start
+This will open the Expo developer tools. You can:
+
+Press i for iOS simulator
+Press a for Android emulator
+Scan QR code with Expo Go app on your phone
+
+
+Step 4: Setup External Services
+MongoDB
+Option 1: Local MongoDB
+bash# On macOS with Homebrew
+brew install mongodb-community
+brew services start mongodb-community
+
+# On Ubuntu/Debian
+sudo apt-get install mongodb
+sudo systemctl start mongodb
+Option 2: MongoDB Atlas (Cloud)
+
+Go to https://www.mongodb.com/cloud/atlas
+Create free cluster
+Get connection string
+Update MONGODB_URI in backend .env
+
+Firebase (for push notifications)
+
+Go to https://console.firebase.google.com/
+Create new project
+Go to Project Settings → Service Accounts
+Click "Generate new private key"
+Copy the values to your backend .env:
+
+FIREBASE_PROJECT_ID
+FIREBASE_PRIVATE_KEY (the entire private key)
+FIREBASE_CLIENT_EMAIL
+
+
+
+Cloudinary (for image uploads)
+
+Go to https://cloudinary.com/
+Sign up for free account
+Go to Dashboard
+Copy credentials to backend .env:
+
+CLOUDINARY_CLOUD_NAME
+CLOUDINARY_API_KEY
+CLOUDINARY_API_SECRET
+
+
+
+
+Quick Start Checklist ✅
+
+ Install MongoDB and start it
+ Create backend folder and install dependencies
+ Copy backend code files
+ Create backend .env file
+ Seed challenges: node scripts/seedChallenges.js
+ Start backend: npm run dev
+ Create frontend with Expo
+ Install frontend dependencies
+ Copy frontend code files
+ Create frontend .env file
+ Start frontend: npx expo start
+ Sign up for Firebase account
+ Sign up for Cloudinary account
+ Update .env files with credentials
+
+
+Common Issues & Fixes
+"Cannot connect to MongoDB"
+
+Make sure MongoDB is running: brew services start mongodb-community
+Or use MongoDB Atlas cloud URL
+
+"localhost not working on phone"
+
+Change API_URL in client .env to your computer's IP
+Find IP: ifconfig (Mac/Linux) or ipconfig (Windows)
+Example: EXPO_PUBLIC_API_URL=http://192.168.1.100:3000/api
+
+"Camera permissions denied"
+
+Delete app from phone and reinstall
+Or go to phone Settings → Apps → Expo Go → Permissions
+
+"Push notifications not working"
+
+Make sure you're testing on a real device (not simulator)
+Ensure Firebase credentials are correct
+Check that push token is being saved to database
+
+
+Testing the App
+
+Sign up - Create a new account
+Home Screen - You should see "No challenge for today yet"
+Manually trigger cron - In backend, temporarily change cron to * * * * * (every minute) in server.js
+Wait 1 minute - Challenge should appear
+Take photo - Go to Camera tab and submit a photo
+Check Feed - Add friends and see their submissions
+
+
+Ready to Demo! 🎉
+Once everything is running:
+
+Backend should be on http://localhost:3000
+Frontend should be in Expo Go app
+Try the full flow: signup → receive challenge → take photo → submit!
+
+Good luck at SBHacks! 🚀
