@@ -1,627 +1,1054 @@
-// server.js
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const cron = require('node-cron');
-require('dotenv').config();
-
-const authRoutes = require('./src/routes/auth');
-const challengeRoutes = require('./src/routes/challenges');
-const submissionRoutes = require('./src/routes/submissions');
-const userRoutes = require('./src/routes/users');
-const { sendDailyChallenge } = require('./src/cron/dailyChallenge');
-
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Database connection
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/challenges', challengeRoutes);
-app.use('/api/submissions', submissionRoutes);
-app.use('/api/users', userRoutes);
-
-// Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date() });
-});
-
-// Cron job - Send daily challenge at 6 AM
-cron.schedule('0 6 * * *', async () => {
-  console.log('Running daily challenge cron job...');
-  await sendDailyChallenge();
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: err.message });
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
 // ============================================
-// src/models/User.js
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-
-const userSchema = new mongoose.Schema({
-  username: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    lowercase: true
-  },
-  password: {
-    type: String,
-    required: true
-  },
-  pushToken: {
-    type: String,
-    default: null
-  },
-  friends: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }],
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 10);
-  next();
-});
-
-// Compare password method
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  return bcrypt.compare(candidatePassword, this.password);
-};
-
-module.exports = mongoose.model('User', userSchema);
-
+// App.js - Main Entry Point
 // ============================================
-// src/models/Challenge.js
-const mongoose = require('mongoose');
-
-const challengeSchema = new mongoose.Schema({
-  prompt: {
-    type: String,
-    required: true
-  },
-  category: {
-    type: String,
-    enum: ['social', 'food', 'nature', 'creative', 'random'],
-    default: 'random'
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-module.exports = mongoose.model('Challenge', challengeSchema);
-
-// ============================================
-// src/models/Submission.js
-const mongoose = require('mongoose');
-
-const submissionSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  challengeId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Challenge',
-    required: true
-  },
-  date: {
-    type: Date,
-    required: true
-  },
-  imageUrl: {
-    type: String,
-    required: true
-  },
-  completed: {
-    type: Boolean,
-    default: true
-  },
-  submittedAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-// Ensure one submission per user per day
-submissionSchema.index({ userId: 1, date: 1 }, { unique: true });
-
-module.exports = mongoose.model('Submission', submissionSchema);
-
-// ============================================
-// src/models/DailyPrompt.js
-const mongoose = require('mongoose');
-
-const dailyPromptSchema = new mongoose.Schema({
-  date: {
-    type: Date,
-    required: true,
-    unique: true
-  },
-  challengeId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Challenge',
-    required: true
-  },
-  sentAt: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-module.exports = mongoose.model('DailyPrompt', dailyPromptSchema);
-
-// ============================================
-// src/middleware/auth.js
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-
-const authMiddleware = async (req, res, next) => {
-  try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      throw new Error();
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId);
-
-    if (!user) {
-      throw new Error();
-    }
-
-    req.user = user;
-    req.userId = user._id;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Please authenticate' });
-  }
-};
-
-module.exports = authMiddleware;
-
-// ============================================
-// src/routes/auth.js
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-
-const router = express.Router();
-
-// Register
-router.post('/register', async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-
-    const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-    if (existingUser) {
-      return res.status(400).json({ error: 'User already exists' });
-    }
-
-    const user = new User({ username, email, password });
-    await user.save();
-
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '30d'
-    });
-
-    res.status(201).json({
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email
-      }
-    });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// Login
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '30d'
-    });
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email
-      }
-    });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-module.exports = router;
-
-// ============================================
-// src/routes/challenges.js
-const express = require('express');
-const authMiddleware = require('../middleware/auth');
-const DailyPrompt = require('../models/DailyPrompt');
-const Challenge = require('../models/Challenge');
-
-const router = express.Router();
-
-// Get today's challenge
-router.get('/today', authMiddleware, async (req, res) => {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const dailyPrompt = await DailyPrompt.findOne({ date: today })
-      .populate('challengeId');
-
-    if (!dailyPrompt) {
-      return res.status(404).json({ error: 'No challenge for today yet' });
-    }
-
-    res.json({
-      challenge: dailyPrompt.challengeId,
-      date: dailyPrompt.date
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get challenge history
-router.get('/history', authMiddleware, async (req, res) => {
-  try {
-    const history = await DailyPrompt.find()
-      .populate('challengeId')
-      .sort({ date: -1 })
-      .limit(30);
-
-    res.json(history);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-module.exports = router;
-
-// ============================================
-// src/routes/submissions.js
-const express = require('express');
-const multer = require('multer');
-const authMiddleware = require('../middleware/auth');
-const Submission = require('../models/Submission');
-const DailyPrompt = require('../models/DailyPrompt');
-const { uploadImage } = require('../services/imageUpload');
-
-const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
-
-// Submit photo for challenge
-router.post('/', authMiddleware, upload.single('image'), async (req, res) => {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Check if already submitted today
-    const existingSubmission = await Submission.findOne({
-      userId: req.userId,
-      date: today
-    });
-
-    if (existingSubmission) {
-      return res.status(400).json({ error: 'Already submitted for today' });
-    }
-
-    // Get today's challenge
-    const dailyPrompt = await DailyPrompt.findOne({ date: today });
-    if (!dailyPrompt) {
-      return res.status(404).json({ error: 'No challenge for today' });
-    }
-
-    // Upload image
-    const imageUrl = await uploadImage(req.file);
-
-    // Create submission
-    const submission = new Submission({
-      userId: req.userId,
-      challengeId: dailyPrompt.challengeId,
-      date: today,
-      imageUrl
-    });
-
-    await submission.save();
-
-    res.status(201).json(submission);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// Get my submissions
-router.get('/mine', authMiddleware, async (req, res) => {
-  try {
-    const submissions = await Submission.find({ userId: req.userId })
-      .populate('challengeId')
-      .sort({ date: -1 });
-
-    res.json(submissions);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get friends' submissions for today
-router.get('/friends', authMiddleware, async (req, res) => {
-  try {
-    const user = await req.user.populate('friends');
-    const friendIds = user.friends.map(f => f._id);
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const submissions = await Submission.find({
-      userId: { $in: friendIds },
-      date: today
-    })
-      .populate('userId', 'username')
-      .populate('challengeId');
-
-    res.json(submissions);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-module.exports = router;
-
-// ============================================
-// src/routes/users.js
-const express = require('express');
-const authMiddleware = require('../middleware/auth');
-const User = require('../models/User');
-
-const router = express.Router();
-
-// Get current user
-router.get('/me', authMiddleware, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId)
-      .select('-password')
-      .populate('friends', 'username');
-    
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Update push token
-router.put('/push-token', authMiddleware, async (req, res) => {
-  try {
-    const { pushToken } = req.body;
-    
-    await User.findByIdAndUpdate(req.userId, { pushToken });
-    
-    res.json({ message: 'Push token updated' });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// Add friend
-router.post('/friends', authMiddleware, async (req, res) => {
-  try {
-    const { username } = req.body;
-    
-    const friend = await User.findOne({ username });
-    if (!friend) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    const user = await User.findById(req.userId);
-    if (user.friends.includes(friend._id)) {
-      return res.status(400).json({ error: 'Already friends' });
-    }
-
-    user.friends.push(friend._id);
-    await user.save();
-
-    res.json({ message: 'Friend added', friend: { id: friend._id, username: friend.username } });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-});
-
-module.exports = router;
-
-// ============================================
-// src/cron/dailyChallenge.js
-const DailyPrompt = require('../models/DailyPrompt');
-const Challenge = require('../models/Challenge');
-const { sendPushNotification } = require('../services/pushNotifications');
-const User = require('../models/User');
-
-async function sendDailyChallenge() {
-  try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Check if already sent today
-    const existing = await DailyPrompt.findOne({ date: today });
-    if (existing) {
-      console.log('Challenge already sent today');
-      return;
-    }
-
-    // Get random challenge
-    const count = await Challenge.countDocuments();
-    const random = Math.floor(Math.random() * count);
-    const challenge = await Challenge.findOne().skip(random);
-
-    if (!challenge) {
-      console.error('No challenges available');
-      return;
-    }
-
-    // Save daily prompt
-    const dailyPrompt = new DailyPrompt({
-      date: today,
-      challengeId: challenge._id
-    });
-    await dailyPrompt.save();
-
-    // Send push notifications to all users
-    const users = await User.find({ pushToken: { $ne: null } });
-    
-    for (const user of users) {
-      await sendPushNotification(user.pushToken, {
-        title: 'Today\'s Challenge!',
-        body: challenge.prompt,
-        data: { challengeId: challenge._id.toString() }
-      });
-    }
-
-    console.log(`Daily challenge sent: ${challenge.prompt}`);
-  } catch (error) {
-    console.error('Error sending daily challenge:', error);
-  }
+import { NavigationContainer } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
+import { AuthProvider } from './src/context/AuthContext';
+import AppNavigator from './src/navigation/AppNavigator';
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <NavigationContainer>
+        <AppNavigator />
+        <StatusBar style="auto" />
+      </NavigationContainer>
+    </AuthProvider>
+  );
 }
 
-module.exports = { sendDailyChallenge };
+// ============================================
+// src/context/AuthContext.js
+// ============================================
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { getToken, saveToken, removeToken } from '../utils/storage';
+import { loginUser, registerUser } from '../services/auth';
+
+const AuthContext = createContext();
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(null);
+
+  useEffect(() => {
+    loadToken();
+  }, []);
+
+  const loadToken = async () => {
+    try {
+      const savedToken = await getToken();
+      if (savedToken) {
+        setToken(savedToken);
+        // TODO: Fetch user data with token
+      }
+    } catch (error) {
+      console.error('Error loading token:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async (email, password) => {
+    const data = await loginUser(email, password);
+    setToken(data.token);
+    setUser(data.user);
+    await saveToken(data.token);
+    return data;
+  };
+
+  const register = async (username, email, password) => {
+    const data = await registerUser(username, email, password);
+    setToken(data.token);
+    setUser(data.user);
+    await saveToken(data.token);
+    return data;
+  };
+
+  const logout = async () => {
+    setToken(null);
+    setUser(null);
+    await removeToken();
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => useContext(AuthContext);
 
 // ============================================
-// src/services/pushNotifications.js
-const admin = require('firebase-admin');
+// src/navigation/AppNavigator.js
+// ============================================
+import React from 'react';
+import { createStackNavigator } from '@react-navigation/stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../context/AuthContext';
 
-// Initialize Firebase Admin
-admin.initializeApp({
-  credential: admin.credential.cert({
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL
-  })
-});
+import AuthScreen from '../screens/AuthScreen';
+import HomeScreen from '../screens/HomeScreen';
+import CameraScreen from '../screens/CameraScreen';
+import FeedScreen from '../screens/FeedScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 
-async function sendPushNotification(token, notification) {
-  try {
-    const message = {
-      notification: {
-        title: notification.title,
-        body: notification.body
-      },
-      data: notification.data || {},
-      token: token
-    };
+const Stack = createStackNavigator();
+const Tab = createBottomTabNavigator();
 
-    await admin.messaging().send(message);
-    console.log('Push notification sent successfully');
-  } catch (error) {
-    console.error('Error sending push notification:', error);
-  }
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Camera') iconName = focused ? 'camera' : 'camera-outline';
+          else if (route.name === 'Feed') iconName = focused ? 'people' : 'people-outline';
+          else if (route.name === 'Profile') iconName = focused ? 'person' : 'person-outline';
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#007AFF',
+        tabBarInactiveTintColor: 'gray',
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Camera" component={CameraScreen} />
+      <Tab.Screen name="Feed" component={FeedScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
+    </Tab.Navigator>
+  );
 }
 
-module.exports = { sendPushNotification };
+export default function AppNavigator() {
+  const { token, loading } = useAuth();
+
+  if (loading) {
+    return null; // Or a loading screen
+  }
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {token ? (
+        <Stack.Screen name="Main" component={MainTabs} />
+      ) : (
+        <Stack.Screen name="Auth" component={AuthScreen} />
+      )}
+    </Stack.Navigator>
+  );
+}
 
 // ============================================
-// src/services/imageUpload.js
-const cloudinary = require('cloudinary').v2;
+// src/screens/AuthScreen.js
+// ============================================
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { useAuth } from '../context/AuthContext';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+export default function AuthScreen() {
+  const [isLogin, setIsLogin] = useState(true);
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { login, register } = useAuth();
+
+  const handleSubmit = async () => {
+    try {
+      if (isLogin) {
+        await login(email, password);
+      } else {
+        await register(username, email, password);
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Authentication failed');
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>DailyChallenge</Text>
+      <Text style={styles.subtitle}>
+        {isLogin ? 'Welcome back!' : 'Create your account'}
+      </Text>
+
+      {!isLogin && (
+        <TextInput
+          style={styles.input}
+          placeholder="Username"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+        />
+      )}
+
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+
+      <TouchableOpacity style={styles.button} onPress={handleSubmit}>
+        <Text style={styles.buttonText}>{isLogin ? 'Login' : 'Sign Up'}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
+        <Text style={styles.switchText}>
+          {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Login'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+    backgroundColor: '#fff',
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#666',
+    marginBottom: 40,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  switchText: {
+    textAlign: 'center',
+    color: '#007AFF',
+    marginTop: 20,
+  },
 });
 
-async function uploadImage(file) {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      { folder: 'dailychallenge' },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result.secure_url);
-      }
+// ============================================
+// src/screens/HomeScreen.js
+// ============================================
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { getTodayChallenge } from '../services/api';
+import Timer from '../components/Timer';
+import ChallengeCard from '../components/ChallengeCard';
+
+export default function HomeScreen({ navigation }) {
+  const [challenge, setChallenge] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+
+  useEffect(() => {
+    loadChallenge();
+  }, []);
+
+  const loadChallenge = async () => {
+    try {
+      const data = await getTodayChallenge();
+      setChallenge(data.challenge);
+    } catch (error) {
+      console.error('Error loading challenge:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
     );
-    
-    uploadStream.end(file.buffer);
-  });
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.header}>Today's Challenge</Text>
+
+      {challenge && <ChallengeCard challenge={challenge} />}
+
+      <Timer />
+
+      {!hasSubmitted ? (
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => navigation.navigate('Camera')}
+        >
+          <Text style={styles.buttonText}>Take Photo 📸</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.completedContainer}>
+          <Text style={styles.completedText}>✅ Challenge Completed!</Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
-module.exports = { uploadImage };
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+  },
+  header: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    padding: 18,
+    borderRadius: 15,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  completedContainer: {
+    backgroundColor: '#4CAF50',
+    padding: 20,
+    borderRadius: 15,
+    marginTop: 20,
+  },
+  completedText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+});
 
 // ============================================
-// package.json
+// src/screens/CameraScreen.js
+// ============================================
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import { Camera } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
+import { submitPhoto } from '../services/api';
+
+export default function CameraScreen({ navigation }) {
+  const [hasPermission, setHasPermission] = useState(null);
+  const [photo, setPhoto] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const cameraRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      setHasPermission(status === 'granted');
+    })();
+  }, []);
+
+  const takePicture = async () => {
+    if (cameraRef.current) {
+      const photo = await cameraRef.current.takePictureAsync();
+      setPhoto(photo);
+    }
+  };
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setPhoto(result.assets[0]);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!photo) return;
+
+    setUploading(true);
+    try {
+      await submitPhoto(photo.uri);
+      Alert.alert('Success', 'Challenge completed!', [
+        { text: 'OK', onPress: () => navigation.navigate('Home') }
+      ]);
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to submit photo');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  if (hasPermission === null) {
+    return <View />;
+  }
+
+  if (hasPermission === false) {
+    return (
+      <View style={styles.container}>
+        <Text>No access to camera</Text>
+      </View>
+    );
+  }
+
+  if (photo) {
+    return (
+      <View style={styles.container}>
+        <Image source={{ uri: photo.uri }} style={styles.preview} />
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[styles.button, styles.retakeButton]}
+            onPress={() => setPhoto(null)}
+          >
+            <Text style={styles.buttonText}>Retake</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.button, styles.submitButton]}
+            onPress={handleSubmit}
+            disabled={uploading}
+          >
+            <Text style={styles.buttonText}>
+              {uploading ? 'Uploading...' : 'Submit'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Camera style={styles.camera} ref={cameraRef}>
+        <View style={styles.cameraControls}>
+          <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+            <View style={styles.captureButtonInner} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.galleryButton} onPress={pickImage}>
+            <Text style={styles.galleryText}>Gallery</Text>
+          </TouchableOpacity>
+        </View>
+      </Camera>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  camera: {
+    flex: 1,
+  },
+  cameraControls: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingBottom: 40,
+  },
+  captureButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  captureButtonInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#007AFF',
+  },
+  galleryButton: {
+    marginTop: 20,
+    padding: 10,
+  },
+  galleryText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  preview: {
+    flex: 1,
+    resizeMode: 'contain',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 20,
+  },
+  button: {
+    flex: 1,
+    padding: 15,
+    borderRadius: 10,
+    marginHorizontal: 5,
+  },
+  retakeButton: {
+    backgroundColor: '#666',
+  },
+  submitButton: {
+    backgroundColor: '#4CAF50',
+  },
+  buttonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});
+
+// ============================================
+// src/screens/FeedScreen.js
+// ============================================
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { getFriendsSubmissions } from '../services/api';
+import SubmissionCard from '../components/SubmissionCard';
+
+export default function FeedScreen() {
+  const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSubmissions();
+  }, []);
+
+  const loadSubmissions = async () => {
+    try {
+      const data = await getFriendsSubmissions();
+      setSubmissions(data);
+    } catch (error) {
+      console.error('Error loading submissions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.header}>Friends' Challenges</Text>
+      {submissions.length === 0 ? (
+        <Text style={styles.emptyText}>No submissions yet today!</Text>
+      ) : (
+        <FlatList
+          data={submissions}
+          keyExtractor={(item) => item._id}
+          renderItem={({ item }) => <SubmissionCard submission={item} />}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: 20,
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    marginTop: 40,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 16,
+    marginTop: 50,
+  },
+});
+
+// ============================================
+// src/screens/ProfileScreen.js
+// ============================================
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { useAuth } from '../context/AuthContext';
+import { getMySubmissions } from '../services/api';
+import SubmissionCard from '../components/SubmissionCard';
+
+export default function ProfileScreen() {
+  const { user, logout } = useAuth();
+  const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSubmissions();
+  }, []);
+
+  const loadSubmissions = async () => {
+    try {
+      const data = await getMySubmissions();
+      setSubmissions(data);
+    } catch (error) {
+      console.error('Error loading submissions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.username}>{user?.username || 'User'}</Text>
+        <Text style={styles.streak}>🔥 {submissions.length} day streak</Text>
+        <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.sectionTitle}>Your Submissions</Text>
+      <FlatList
+        data={submissions}
+        keyExtractor={(item) => item._id}
+        renderItem={({ item }) => <SubmissionCard submission={item} />}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>No submissions yet!</Text>
+        }
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  header: {
+    padding: 20,
+    paddingTop: 60,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+  },
+  username: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  streak: {
+    fontSize: 18,
+    color: '#fff',
+    marginTop: 5,
+  },
+  logoutButton: {
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 8,
+  },
+  logoutText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    padding: 20,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 16,
+    marginTop: 50,
+  },
+});
+
+// ============================================
+// src/components/ChallengeCard.js
+// ============================================
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
+export default function ChallengeCard({ challenge }) {
+  return (
+    <View style={styles.card}>
+      <Text style={styles.emoji}>🎯</Text>
+      <Text style={styles.prompt}>{challenge.prompt}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#F0F0F0',
+    padding: 30,
+    borderRadius: 20,
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  emoji: {
+    fontSize: 50,
+    marginBottom: 15,
+  },
+  prompt: {
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    color: '#333',
+  },
+});
+
+// ============================================
+// src/components/Timer.js
+// ============================================
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+
+export default function Timer() {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const diff = endOfDay - now;
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.label}>Time Remaining:</Text>
+      <Text style={styles.time}>{timeLeft}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#FFF3CD',
+    borderRadius: 15,
+    marginVertical: 10,
+  },
+  label: {
+    fontSize: 14,
+    color: '#856404',
+    marginBottom: 5,
+  },
+  time: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#856404',
+  },
+});
+
+// ============================================
+// src/components/SubmissionCard.js
+// ============================================
+import React from 'react';
+import { View, Text, Image, StyleSheet } from 'react-native';
+
+export default function SubmissionCard({ submission }) {
+  return (
+    <View style={styles.card}>
+      <View style={styles.header}>
+        <Text style={styles.username}>{submission.userId?.username}</Text>
+        <Text style={styles.time}>
+          {new Date(submission.submittedAt).toLocaleTimeString()}
+        </Text>
+      </View>
+      <Image source={{ uri: submission.imageUrl }} style={styles.image} />
+      <Text style={styles.prompt}>{submission.challengeId?.prompt}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    marginBottom: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 15,
+  },
+  username: {
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  time: {
+    color: '#666',
+    fontSize: 14,
+  },
+  image: {
+    width: '100%',
+    height: 300,
+    backgroundColor: '#f0f0f0',
+  },
+  prompt: {
+    padding: 15,
+    fontSize: 14,
+    color: '#666',
+  },
+});
+
+// ============================================
+// src/services/api.js
+// ============================================
+import axios from 'axios';
+import { getToken } from '../utils/storage';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+
+const api = axios.create({
+  baseURL: API_URL,
+});
+
+// Add token to requests
+api.interceptors.request.use(async (config) => {
+  const token = await getToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export const getTodayChallenge = async () => {
+  const response = await api.get('/challenges/today');
+  return response.data;
+};
+
+export const submitPhoto = async (imageUri) => {
+  const formData = new FormData();
+  formData.append('image', {
+    uri: imageUri,
+    type: 'image/jpeg',
+    name: 'photo.jpg',
+  });
+
+  const response = await api.post('/submissions', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+export const getMySubmissions = async () => {
+  const response = await api.get('/submissions/mine');
+  return response.data;
+};
+
+export const getFriendsSubmissions = async () => {
+  const response = await api.get('/submissions/friends');
+  return response.data;
+};
+
+export default api;
+
+// ============================================
+// src/services/auth.js
+// ============================================
+import axios from 'axios';
+
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+
+export const loginUser = async (email, password) => {
+  const response = await axios.post(`${API_URL}/auth/login`, {
+    email,
+    password,
+  });
+  return response.data;
+};
+
+export const registerUser = async (username, email, password) => {
+  const response = await axios.post(`${API_URL}/auth/register`, {
+    username,
+    email,
+    password,
+  });
+  return response.data;
+};
+
+// ============================================
+// src/services/notifications.js
+// ============================================
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+import api from './api';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+export async function registerForPushNotifications() {
+  let token;
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    if (finalStatus !== 'granted') {
+      alert('Failed to get push token for push notification!');
+      return;
+    }
+
+    token = (await Notifications.getExpoPushTokenAsync()).data;
+    
+    // Send token to backend
+    await api.put('/users/push-token', { pushToken: token });
+  } else {
+    alert('Must use physical device for Push Notifications');
+  }
+
+  if (Platform.OS === 'android') {
+    Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+
+  return token;
+}
+
+// ============================================
+// src/utils/storage.js
+// ============================================
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const TOKEN_KEY = 'auth_token';
+
+export const saveToken = async (token) => {
+  try {
+    await AsyncStorage.setItem(TOKEN_KEY, token);
+  } catch (error) {
+    console.error('Error saving token:', error);
+  }
+};
+
+export const getToken = async () => {
+  try {
+    return await AsyncStorage.getItem(TOKEN_KEY);
+  } catch (error) {
+    console.error('Error getting token:', error);
+    return null;
+  }
+};
+
+export const removeToken = async () => {
+  try {
+    await AsyncStorage.removeItem(TOKEN_KEY);
+  } catch (error) {
+    console.error('Error removing token:', error);
+  }
+};
+
+// ============================================
+// src/utils/constants.js
+// ============================================
+export const COLORS = {
+  primary: '#007AFF',
+  secondary: '#5856D6',
+  success: '#4CAF50',
+  danger: '#FF3B30',
+  warning: '#FF9500',
+  background: '#FFFFFF',
+  text: '#000000',
+};
+
+export const CHALLENGE_CATEGORIES = [
+  'social',
+  'food',
+  'nature',
+  'creative',
+  'random',
+];
+
+// ============================================
+// package.json (for client)
+// ============================================
 /*
 {
-  "name": "dailychallenge-backend",
+  "name": "dailychallenge-client",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "node_modules/expo/AppEntry.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "mongoose": "^8.0.0",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "multer": "^1.4.5-lts.1",
-    "node-cron": "^3.0.2",
-    "firebase-admin": "^12.0.0",
-    "cloudinary": "^1.41.0"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.1"
-  }
-}
-*/
+    "expo": "~50.0.0",
+    "expo-camera": "~14.0.0",
+    "expo-image-picker
