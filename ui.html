@@ -843,12 +843,24 @@
     <script>
         // Login handling
         function handleLogin(event) {
-            event.preventDefault();
-            // Simulate login
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('appContent').classList.add('visible');
-        }
+			event.preventDefault();
 
+			// HARD-CODED CREDENTIALS
+			const VALID_EMAIL = "test@blink.app";
+			const VALID_PASSWORD = "blink123";
+
+			const email = document.getElementById("loginEmail").value.trim();
+			const password = document.getElementById("loginPassword").value.trim();
+			const error = document.getElementById("loginError");
+
+			if (email === VALID_EMAIL && password === VALID_PASSWORD) {
+			  error.style.display = "none";
+			  document.getElementById("loginScreen").style.display = "none";
+			  document.getElementById("appContent").classList.add("visible");
+			} else {
+			  error.style.display = "block";
+			}
+		  }
         function switchToSignup() {
             // In production, this would switch to signup form
             alert('Signup form would appear here');
