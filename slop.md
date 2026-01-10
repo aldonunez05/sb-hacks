@@ -20,8 +20,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -36,7 +36,7 @@ app.get('/health', (req, res) => {
 
 // Cron job - Send daily challenge at 6 AM
 cron.schedule('0 6 * * *', async () => {
-  console.log('🔔 Running daily challenge cron job...');
+  console.log('Running daily challenge cron job...');
   await sendDailyChallenge();
 });
 
@@ -48,7 +48,7 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
 // ============================================
