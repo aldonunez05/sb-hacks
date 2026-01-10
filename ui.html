@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blink.</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #000;
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Fullscreen centered layout */
+        .hero-section {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+            position: relative;
+        }
+
+        /* Top bar - floating */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .streak {
+            font-size: 15px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .streak-num {
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        /* Main challenge display - huge and centered */
+        .challenge-display {
+            text-align: center;
+            max-width: 800px;
+            margin-bottom: 60px;
+        }
+
+        .challenge-number {
+            font-size: 14px;
+            opacity: 0.4;
+            margin-bottom: 30px;
+            letter-spacing: 2px;
+        }
+
+        .challenge-title {
+            font-size: clamp(32px, 6vw, 64px);
+            font-weight: 600;
+            line-height: 1.2;
+            margin-bottom: 40px;
+            letter-spacing: -1px;
+        }
+
+        /* Circular timer - visual centerpiece */
+        .timer-circle {
+            width: 200px;
+            height: 200px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 60px;
+            position: relative;
+        }
+
+        .timer-circle::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 50%;
+            border: 3px solid white;
+            border-bottom-color: transparent;
+            border-left-color: transparent;
+            transform: rotate(0deg);
+            animation: rotate 60s linear infinite;
+        }
+
+        @keyframes rotate {
+            to { transform: rotate(360deg); }
+        }
+
+        .time-remaining {
+            font-size: 36px;
+            font-weight: 300;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -1px;
+        }
+
+        .time-label {
+            font-size: 11px;
+            opacity: 0.4;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+        }
+
+        /* CTA Area - minimalist */
+        .action-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .upload-trigger {
+            width: 280px;
+            height: 280px;
+            background: rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-trigger:hover {
+            background: rgba(255,255,255,0.08);
+            transform: scale(1.02);
+        }
+
+        .upload-trigger.has-photo {
+            background: transparent;
+        }
+
+        .upload-text {
+            font-size: 15px;
+            opacity: 0.5;
+        }
+
+        .preview-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .submit-button {
+            background: white;
+            color: black;
+            border: none;
+            padding: 18px 60px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+        }
+
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(255,255,255,0.2);
+        }
+
+        /* Bottom section - friend activity */
+        .activity-dock {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(20,20,20,0.95);
+            backdrop-filter: blur(20px);
+            padding: 30px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+        }
+
+        .activity-dock.visible {
+            transform: translateY(0);
+        }
+
+        .dock-handle {
+            width: 40px;
+            height: 4px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 2px;
+            margin: 0 auto 20px;
+            cursor: pointer;
+        }
+
+        .activity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .friend-card {
+            text-align: center;
+        }
+
+        .friend-photo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #222;
+            margin: 0 auto 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .friend-name {
+            font-size: 13px;
+            opacity: 0.6;
+        }
+
+        .friend-status {
+            font-size: 11px;
+            opacity: 0.4;
+            margin-top: 3px;
+        }
+
+        /* Success overlay */
+        .success-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: black;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .success-overlay.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .success-content {
+            text-align: center;
+            animation: scaleIn 0.5s ease;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .success-check {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .success-text {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .success-subtext {
+            font-size: 14px;
+            opacity: 0.5;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Floating dock toggle */
+        .dock-toggle {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: white;
+            color: black;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            z-index: 99;
+            transition: all 0.3s ease;
+        }
+
+        .dock-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        /* Navigation Menu */
+        .nav-menu {
+            position: fixed;
+            top: 80px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 100;
+        }
+
+        .nav-item {
+            background: rgba(255,255,255,0.05);
+            padding: 12px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: right;
+            font-weight: 500;
+        }
+
+        .nav-item:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(-5px);
+        }
+
+        .nav-item.active {
+            background: white;
+            color: black;
+        }
+
+        /* Profile Panel */
+        .panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 400px;
+            height: 100vh;
+            background: #111;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            z-index: 200;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        .panel.visible {
+            transform: translateX(0);
+        }
+
+        .panel-close {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0.6;
+        }
+
+        .panel-close:hover {
+            opacity: 1;
+        }
+
+        .panel-header {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 30px;
+        }
+
+        .profile-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-box {
+            background: rgba(255,255,255,0.05);
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.5;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .leaderboard-list {
+            margin-top: 20px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.03);
+            margin-bottom: 10px;
+            gap: 15px;
+        }
+
+        .rank {
+            font-size: 18px;
+            font-weight: 700;
+            opacity: 0.5;
+            width: 30px;
+        }
+
+        .leaderboard-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            color: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .leaderboard-info {
+            flex: 1;
+        }
+
+        .leaderboard-name {
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .leaderboard-count {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .friends-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .friend-box {
+            background: rgba(255,255,255,0.03);
+            padding: 20px;
+            text-align: center;
+        }
+
+        .friend-avatar-large {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: white;
+            color: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 20px;
+            margin: 0 auto 10px;
+        }
+
+        @media (max-width: 768px) {
+            .nav-menu {
+                top: auto;
+                bottom: 20px;
+                right: 20px;
+                left: 20px;
+                flex-direction: row;
+            }
+
+            .nav-item {
+                flex: 1;
+                text-align: center;
+            }
+
+            .panel {
+                width: 100%;
+            }
+        }
+            .challenge-title {
+                font-size: 36px;
+            }
+
+            .upload-trigger {
+                width: 240px;
+                height: 240px;
+            }
+
+            .timer-circle {
+                width: 160px;
+                height: 160px;
+            }
+
+            .time-remaining {
+                font-size: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="logo">Blink.</div>
+        <div class="streak">
+            <span class="streak-num" id="streakNum">7</span>
+            <span style="opacity: 0.6;">day streak</span>
+        </div>
+    </div>
+
+    <!-- Navigation Menu -->
+    <div class="nav-menu">
+        <div class="nav-item active" onclick="showPanel('today')">Today</div>
+        <div class="nav-item" onclick="showPanel('leaderboard')">Rankings</div>
+        <div class="nav-item" onclick="showPanel('friends')">Friends</div>
+        <div class="nav-item" onclick="showPanel('profile')">Profile</div>
+    </div>
+
+    <!-- Main Hero Section -->
+    <div class="hero-section">
+        <div class="challenge-display">
+            <div class="challenge-number">CHALLENGE #10</div>
+            <h1 class="challenge-title" id="challengeTitle">Take a photo with your best friend</h1>
+        </div>
+
+        <div class="timer-circle">
+            <div class="time-remaining" id="timeDisplay">14:23:45</div>
+            <div class="time-label">HOURS LEFT</div>
+        </div>
+
+        <div class="action-area">
+            <div class="upload-trigger" id="uploadBox" onclick="document.getElementById('photoInput').click()">
+                <span class="upload-text" id="uploadText">Tap to upload</span>
+                <img class="preview-image" id="photoPreview" style="display: none;">
+            </div>
+            <button class="submit-button" id="submitBtn" style="display: none;" onclick="completeChallenge()">
+                Submit Entry
+            </button>
+        </div>
+    </div>
+
+    <input type="file" id="photoInput" accept="image/*" onchange="handlePhoto(event)">
+
+    <!-- Activity Dock -->
+    <button class="dock-toggle" onclick="toggleDock()">3</button>
+    <div class="activity-dock" id="activityDock">
+        <div class="dock-handle" onclick="toggleDock()"></div>
+        <div class="activity-grid">
+            <div class="friend-card">
+                <div class="friend-photo">A</div>
+                <div class="friend-name">Alexia</div>
+                <div class="friend-status">2h ago</div>
+            </div>
+            <div class="friend-card">
+                <div class="friend-photo">C</div>
+                <div class="friend-name">Carter</div>
+                <div class="friend-status">5h ago</div>
+            </div>
+            <div class="friend-card">
+                <div class="friend-photo">M</div>
+                <div class="friend-name">Mylie</div>
+                <div class="friend-status">8h ago</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Overlay -->
+    <div class="success-overlay" id="successScreen">
+        <div class="success-content">
+            <div class="success-check">✓</div>
+            <div class="success-text">Challenge Complete</div>
+            <div class="success-subtext">See you tomorrow</div>
+        </div>
+    </div>
+
+    <!-- Panels -->
+    <!-- Profile Panel -->
+    <div class="panel" id="profilePanel">
+        <button class="panel-close" onclick="closePanel('profilePanel')">×</button>
+        <div class="panel-header">Your Profile</div>
+        <div class="profile-stats">
+            <div class="stat-box">
+                <div class="stat-number">47</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">7</div>
+                <div class="stat-label">Streak</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">94%</div>
+                <div class="stat-label">Rate</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">12</div>
+                <div class="stat-label">Friends</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Panel -->
+    <div class="panel" id="leaderboardPanel">
+        <button class="panel-close" onclick="closePanel('leaderboardPanel')">×</button>
+        <div class="panel-header">Rankings</div>
+        <div class="leaderboard-list">
+            <div class="leaderboard-item">
+                <div class="rank">1</div>
+                <div class="leaderboard-avatar">A</div>
+                <div class="leaderboard-info">
+                    <div class="leaderboard-name">Alexia</div>
+                    <div class="leaderboard-count">52 challenges</div>
+                </div>
+            </div>
+            <div class="leaderboard-item">
+                <div class="rank">2</div>
+                <div class="leaderboard-avatar">C</div>
+                <div class="leaderboard-info">
+                    <div class="leaderboard-name">Carter</div>
+                    <div class="leaderboard-count">49 challenges</div>
+                </div>
+            </div>
+            <div class="leaderboard-item">
+                <div class="rank">3</div>
+                <div class="leaderboard-avatar">M</div>
+                <div class="leaderboard-info">
+                    <div class="leaderboard-name">Mylie</div>
+                    <div class="leaderboard-count">48 challenges</div>
+                </div>
+            </div>
+            <div class="leaderboard-item" style="background: rgba(255,255,255,0.08);">
+                <div class="rank">4</div>
+                <div class="leaderboard-avatar">You</div>
+                <div class="leaderboard-info">
+                    <div class="leaderboard-name">You</div>
+                    <div class="leaderboard-count">47 challenges</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Friends Panel -->
+    <div class="panel" id="friendsPanel">
+        <button class="panel-close" onclick="closePanel('friendsPanel')">×</button>
+        <div class="panel-header">Friends</div>
+        <div class="friends-grid">
+            <div class="friend-box">
+                <div class="friend-avatar-large">A</div>
+                <div class="friend-name">Alexia</div>
+                <div class="friend-status">Active 2h ago</div>
+            </div>
+            <div class="friend-box">
+                <div class="friend-avatar-large">C</div>
+                <div class="friend-name">Carter</div>
+                <div class="friend-status">Active 5h ago</div>
+            </div>
+            <div class="friend-box">
+                <div class="friend-avatar-large">M</div>
+                <div class="friend-name">Mylie</div>
+                <div class="friend-status">Active 8h ago</div>
+            </div>
+            <div class="friend-box">
+                <div class="friend-avatar-large">A</div>
+                <div class="friend-name">Aldo</div>
+                <div class="friend-status">Active 1d ago</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Timer
+        function updateTimer() {
+            const now = new Date();
+            const midnight = new Date(now);
+            midnight.setHours(23, 59, 59, 999);
+            
+            const diff = midnight - now;
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('timeDisplay').textContent = 
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        setInterval(updateTimer, 1000);
+        updateTimer();
+
+        // Photo handling
+        function handlePhoto(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('photoPreview').src = e.target.result;
+                    document.getElementById('photoPreview').style.display = 'block';
+                    document.getElementById('uploadText').style.display = 'none';
+                    document.getElementById('uploadBox').classList.add('has-photo');
+                    document.getElementById('submitBtn').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Complete challenge
+        function completeChallenge() {
+            document.getElementById('successScreen').classList.add('show');
+            const currentStreak = parseInt(document.getElementById('streakNum').textContent);
+            document.getElementById('streakNum').textContent = currentStreak + 1;
+            
+            setTimeout(() => {
+                document.getElementById('successScreen').classList.remove('show');
+            }, 2500);
+        }
+
+        // Toggle activity dock
+        function toggleDock() {
+            document.getElementById('activityDock').classList.toggle('visible');
+        }
+
+        // Challenges
+        const challenges = [
+            "Take a photo with your best friend",
+            "Show us your lunch",
+            "Capture your current view",
+            "Photo of something blue",
+            "Your favorite spot",
+            "Something that made you smile",
+            "Your workspace",
+            "A random act of kindness"
+        ];
+
+        const randomChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+        document.getElementById('challengeTitle').textContent = randomChallenge;
+
+        // Panel management
+        function showPanel(type) {
+            closeAllPanels();
+            
+            // Update active nav
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Show appropriate panel
+            if (type === 'profile') {
+                document.getElementById('profilePanel').classList.add('visible');
+            } else if (type === 'leaderboard') {
+                document.getElementById('leaderboardPanel').classList.add('visible');
+            } else if (type === 'friends') {
+                document.getElementById('friendsPanel').classList.add('visible');
+            }
+        }
+
+        function closePanel(panelId) {
+            document.getElementById(panelId).classList.remove('visible');
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector('.nav-item').classList.add('active');
+        }
+
+        function closeAllPanels() {
+            document.querySelectorAll('.panel').forEach(panel => {
+                panel.classList.remove('visible');
+            });
+        }
+    </script>
+</body>
+</html>
