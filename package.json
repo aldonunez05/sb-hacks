@@ -1,0 +1,22 @@
+{
+  "name": "sb-hacks",
+  "version": "1.0.0",
+  "description": "DailyChallenge 📸",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aldonunez05/sb-hacks.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/aldonunez05/sb-hacks/issues"
+  },
+  "homepage": "https://github.com/aldonunez05/sb-hacks#readme"
+}
