@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blink - Daily Challenges</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #000;
+            color: white;
+            min-height: 100vh;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: rgba(0,0,0,0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .streak {
+            font-size: 15px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .streak-num {
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        /* Main Container */
+        .main-container {
+            padding-top: 80px;
+            max-width: 600px;
+            margin: 0 auto;
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-bottom: 40px;
+        }
+
+        /* Today's Challenge Card */
+        .challenge-card {
+            background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .challenge-label {
+            font-size: 11px;
+            opacity: 0.4;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+
+        .challenge-title {
+            font-size: 32px;
+            font-weight: 600;
+            line-height: 1.3;
+            margin-bottom: 30px;
+            letter-spacing: -0.5px;
+        }
+
+        .timer-compact {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.05);
+            padding: 12px 24px;
+            border-radius: 100px;
+            margin-bottom: 30px;
+        }
+
+        .timer-compact .time {
+            font-size: 18px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .timer-compact .label {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        .upload-area {
+            width: 100%;
+            aspect-ratio: 1;
+            background: rgba(255,255,255,0.03);
+            border: 2px dashed rgba(255,255,255,0.1);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .upload-area.has-photo {
+            border-style: solid;
+        }
+
+        .upload-placeholder {
+            text-align: center;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.3;
+        }
+
+        .upload-text {
+            font-size: 14px;
+            opacity: 0.5;
+        }
+
+        .preview-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        .upload-area.has-photo .preview-image {
+            display: block;
+        }
+
+        .upload-area.has-photo .upload-placeholder {
+            display: none;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: white;
+            color: black;
+            border: none;
+            padding: 18px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .submit-btn.visible {
+            display: block;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(255,255,255,0.2);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 40px 0 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .section-count {
+            font-size: 14px;
+            opacity: 0.5;
+        }
+
+        /* Feed */
+        .feed {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .feed-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 15px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .feed-header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .feed-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .feed-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            color: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .feed-user-info {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .feed-username {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .feed-time {
+            font-size: 12px;
+            opacity: 0.4;
+        }
+
+        .feed-challenge-tag {
+            font-size: 11px;
+            opacity: 0.4;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .feed-image {
+            width: 100%;
+            aspect-ratio: 1;
+            background: rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .feed-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .placeholder-content {
+            text-align: center;
+            opacity: 0.3;
+        }
+
+        .placeholder-emoji {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .placeholder-text {
+            font-size: 13px;
+        }
+
+        .feed-footer {
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .like-btn {
+            background: none;
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .like-btn:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .like-btn .heart {
+            font-size: 22px;
+            transition: all 0.2s ease;
+        }
+
+        .like-btn.liked .heart {
+            color: #ff4444;
+        }
+
+        .like-btn .like-count {
+            font-weight: 600;
+            opacity: 0.6;
+        }
+
+        .like-btn.liked .like-count {
+            opacity: 1;
+        }
+
+        /* Success Modal */
+        .success-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .success-modal.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .success-content {
+            text-align: center;
+            animation: scaleIn 0.5s ease;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .success-check {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .success-text {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .success-subtext {
+            font-size: 15px;
+            opacity: 0.5;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .top-bar {
+                padding: 15px 20px;
+            }
+
+            .logo {
+                font-size: 24px;
+            }
+
+            .challenge-card {
+                padding: 30px 20px;
+            }
+
+            .challenge-title {
+                font-size: 26px;
+            }
+
+            .main-container {
+                padding-left: 15px;
+                padding-right: 15px;
+            }
+        }
+
+        /* Scroll behavior */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            flex: 1;
+            background: rgba(255,255,255,0.03);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            opacity: 0.4;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="logo">Blink.</div>
+        <div class="streak">
+            <span class="streak-num" id="streakNum">7</span>
+            <span style="opacity: 0.6;">🔥</span>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Today's Challenge -->
+        <div class="challenge-card">
+            <div class="challenge-label">TODAY'S CHALLENGE</div>
+            <h1 class="challenge-title" id="challengeTitle">Take a photo with your best friend</h1>
+            
+            <div class="timer-compact">
+                <span class="time" id="timeDisplay">14:23:45</span>
+                <span class="label">left</span>
+            </div>
+
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('photoInput').click()">
+                <div class="upload-placeholder">
+                    <div class="upload-icon">📸</div>
+                    <div class="upload-text">Tap to upload photo</div>
+                </div>
+                <img class="preview-image" id="photoPreview">
+            </div>
+
+            <button class="submit-btn" id="submitBtn" onclick="submitChallenge()">
+                Complete Challenge
+            </button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-bar">
+            <div class="stat-box">
+                <div class="stat-number">47</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">94%</div>
+                <div class="stat-label">Success Rate</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">12</div>
+                <div class="stat-label">Friends</div>
+            </div>
+        </div>
+
+        <!-- Feed Section -->
+        <div class="section-header">
+            <h2 class="section-title">Friend Activity</h2>
+            <span class="section-count">8 completed today</span>
+        </div>
+
+        <div class="feed">
+            <!-- Feed Item 1 -->
+            <div class="feed-item">
+                <div class="feed-header">
+                    <div class="feed-user">
+                        <div class="feed-avatar">A</div>
+                        <div class="feed-user-info">
+                            <div class="feed-username">Alexia</div>
+                            <div class="feed-time">2 hours ago</div>
+                        </div>
+                    </div>
+                    <div class="feed-challenge-tag">Best Friend</div>
+                </div>
+                <div class="feed-image">
+                    <div class="placeholder-content">
+                        <div class="placeholder-emoji">👥</div>
+                        <div class="placeholder-text">Challenge completed</div>
+                    </div>
+                </div>
+                <div class="feed-footer">
+                    <button class="like-btn" onclick="toggleLike(this)">
+                        <span class="heart">♡</span>
+                        <span class="like-count">24</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Feed Item 2 -->
+            <div class="feed-item">
+                <div class="feed-header">
+                    <div class="feed-user">
+                        <div class="feed-avatar">C</div>
+                        <div class="feed-user-info">
+                            <div class="feed-username">Carter</div>
+                            <div class="feed-time">4 hours ago</div>
+                        </div>
+                    </div>
+                    <div class="feed-challenge-tag">Best Friend</div>
+                </div>
+                <div class="feed-image">
+                    <div class="placeholder-content">
+                        <div class="placeholder-emoji">🤝</div>
+                        <div class="placeholder-text">Challenge completed</div>
+                    </div>
+                </div>
+                <div class="feed-footer">
+                    <button class="like-btn liked" onclick="toggleLike(this)">
+                        <span class="heart">♥</span>
+                        <span class="like-count">18</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Feed Item 3 -->
+            <div class="feed-item">
+                <div class="feed-header">
+                    <div class="feed-user">
+                        <div class="feed-avatar">M</div>
+                        <div class="feed-user-info">
+                            <div class="feed-username">Mylie</div>
+                            <div class="feed-time">6 hours ago</div>
+                        </div>
+                    </div>
+                    <div class="feed-challenge-tag">Best Friend</div>
+                </div>
+                <div class="feed-image">
+                    <div class="placeholder-content">
+                        <div class="placeholder-emoji">💙</div>
+                        <div class="placeholder-text">Challenge completed</div>
+                    </div>
+                </div>
+                <div class="feed-footer">
+                    <button class="like-btn" onclick="toggleLike(this)">
+                        <span class="heart">♡</span>
+                        <span class="like-count">31</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Feed Item 4 -->
+            <div class="feed-item">
+                <div class="feed-header">
+                    <div class="feed-user">
+                        <div class="feed-avatar">J</div>
+                        <div class="feed-user-info">
+                            <div class="feed-username">Jordan</div>
+                            <div class="feed-time">8 hours ago</div>
+                        </div>
+                    </div>
+                    <div class="feed-challenge-tag">Best Friend</div>
+                </div>
+                <div class="feed-image">
+                    <div class="placeholder-content">
+                        <div class="placeholder-emoji">✨</div>
+                        <div class="placeholder-text">Challenge completed</div>
+                    </div>
+                </div>
+                <div class="feed-footer">
+                    <button class="like-btn" onclick="toggleLike(this)">
+                        <span class="heart">♡</span>
+                        <span class="like-count">15</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Feed Item 5 -->
+            <div class="feed-item">
+                <div class="feed-header">
+                    <div class="feed-user">
+                        <div class="feed-avatar">S</div>
+                        <div class="feed-user-info">
+                            <div class="feed-username">Sam</div>
+                            <div class="feed-time">10 hours ago</div>
+                        </div>
+                    </div>
+                    <div class="feed-challenge-tag">Best Friend</div>
+                </div>
+                <div class="feed-image">
+                    <div class="placeholder-content">
+                        <div class="placeholder-emoji">🎉</div>
+                        <div class="placeholder-text">Challenge completed</div>
+                    </div>
+                </div>
+                <div class="feed-footer">
+                    <button class="like-btn" onclick="toggleLike(this)">
+                        <span class="heart">♡</span>
+                        <span class="like-count">9</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="success-modal" id="successModal">
+        <div class="success-content">
+            <div class="success-check">✓</div>
+            <div class="success-text">Challenge Complete!</div>
+            <div class="success-subtext">See you tomorrow ✨</div>
+        </div>
+    </div>
+
+    <input type="file" id="photoInput" accept="image/*" onchange="handlePhoto(event)">
+
+    <script>
+        // Timer functionality
+        function updateTimer() {
+            const now = new Date();
+            const midnight = new Date(now);
+            midnight.setHours(23, 59, 59, 999);
+            
+            const diff = midnight - now;
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('timeDisplay').textContent = 
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        setInterval(updateTimer, 1000);
+        updateTimer();
+
+        // Photo upload handling
+        function handlePhoto(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('photoPreview').src = e.target.result;
+                    document.getElementById('uploadArea').classList.add('has-photo');
+                    document.getElementById('submitBtn').classList.add('visible');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Submit challenge
+        function submitChallenge() {
+            document.getElementById('successModal').classList.add('show');
+            
+            // Update streak
+            const currentStreak = parseInt(document.getElementById('streakNum').textContent);
+            document.getElementById('streakNum').textContent = currentStreak + 1;
+            
+            setTimeout(() => {
+                document.getElementById('successModal').classList.remove('show');
+            }, 2500);
+        }
+
+        // Like functionality
+        function toggleLike(btn) {
+            const isLiked = btn.classList.contains('liked');
+            const heart = btn.querySelector('.heart');
+            const countElement = btn.querySelector('.like-count');
+            let count = parseInt(countElement.textContent);
+            
+            if (isLiked) {
+                btn.classList.remove('liked');
+                heart.textContent = '♡';
+                count--;
+            } else {
+                btn.classList.add('liked');
+                heart.textContent = '♥';
+                count++;
+                
+                // Add animation
+                btn.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    btn.style.transform = 'scale(1)';
+                }, 200);
+            }
+            
+            countElement.textContent = count;
+        }
+
+        // Random challenges
+        const challenges = [
+            "Take a photo with your best friend",
+            "Show us your lunch",
+            "Capture your current view",
+            "Photo of something blue",
+            "Your favorite spot on campus",
+            "Something that made you smile today",
+            "Your study setup",
+            "A random act of kindness"
+        ];
+
+        // Set random challenge on load
+        const randomChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+        document.getElementById('challengeTitle').textContent = randomChallenge;
+    </script>
+</body>
+</html>
