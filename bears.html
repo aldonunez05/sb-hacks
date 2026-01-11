@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blink.</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #000;
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Login Screen */
+        .login-screen {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        .login-container {
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .login-logo {
+            font-size: 64px;
+            font-weight: 600;
+            letter-spacing: -2px;
+            margin-bottom: 60px;
+        }
+
+        .login-tagline {
+            font-size: 18px;
+            opacity: 0.6;
+            margin-bottom: 60px;
+            font-weight: 400;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .input-field {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 18px 20px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            outline: none;
+            border-radius: 12px;
+        }
+
+        .input-field:focus {
+            background: rgba(255,255,255,0.08);
+            border-color: white;
+        }
+
+        .input-field::placeholder {
+            color: rgba(255,255,255,0.3);
+        }
+
+        .login-btn {
+            background: white;
+            color: black;
+            border: none;
+            padding: 18px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            border-radius: 12px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(255,255,255,0.2);
+        }
+
+        .login-divider {
+            margin: 30px 0;
+            opacity: 0.3;
+            font-size: 13px;
+        }
+
+        .signup-prompt {
+            font-size: 14px;
+            opacity: 0.6;
+        }
+
+        .signup-link {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+            margin-left: 5px;
+            opacity: 1;
+            cursor: pointer;
+        }
+
+        .signup-link:hover {
+            text-decoration: underline;
+        }
+
+        #loginError {
+            display: none;
+            color: #ff5c5c;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+
+        /* Main App */
+        .app-content {
+            display: none;
+        }
+
+        .app-content.visible {
+            display: block;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: rgba(0,0,0,0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .top-bar-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .points-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.05);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .points-number {
+            color: #FFD700;
+            font-size: 16px;
+        }
+
+        .streak {
+            font-size: 15px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .streak-num {
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .streak-label {
+            opacity: 0.6;
+            font-size: 14px;
+        }
+
+        /* Challenge Screen */
+        .challenge-screen {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 120px 20px 40px;
+        }
+
+        .challenge-display {
+            text-align: center;
+            max-width: 800px;
+            margin-bottom: 60px;
+        }
+
+        .challenge-number {
+            font-size: 14px;
+            opacity: 0.4;
+            margin-bottom: 30px;
+            letter-spacing: 2px;
+        }
+
+        .challenge-title {
+            font-size: clamp(32px, 6vw, 64px);
+            font-weight: 600;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+        }
+
+        .multiplier-info {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .multiplier-badge {
+            background: rgba(255,255,255,0.05);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .multiplier-badge.active {
+            background: rgba(255,215,0,0.15);
+            border: 1px solid rgba(255,215,0,0.3);
+        }
+
+        .timer-circle {
+            width: 200px;
+            height: 200px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 60px;
+            position: relative;
+        }
+
+        .timer-circle::before {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
+            border-radius: 50%;
+            border: 3px solid white;
+            border-bottom-color: transparent;
+            border-left-color: transparent;
+            transform: rotate(0deg);
+            animation: rotate 60s linear infinite;
+        }
+
+        @keyframes rotate {
+            to { transform: rotate(360deg); }
+        }
+
+        .time-remaining {
+            font-size: 36px;
+            font-weight: 300;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -1px;
+        }
+
+        .time-label {
+            font-size: 11px;
+            opacity: 0.4;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 5px;
+        }
+
+        .action-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .upload-trigger {
+            width: 280px;
+            height: 280px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            border: 2px dashed rgba(255,255,255,0.1);
+        }
+
+        .upload-trigger:hover {
+            background: rgba(255,255,255,0.08);
+            transform: scale(1.02);
+        }
+
+        .upload-trigger.has-photo {
+            background: transparent;
+            border-style: solid;
+        }
+
+        .upload-text {
+            font-size: 15px;
+            opacity: 0.5;
+        }
+
+        .preview-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        .upload-trigger.has-photo .preview-image {
+            display: block;
+        }
+
+        .upload-trigger.has-photo .upload-text {
+            display: none;
+        }
+
+        .submit-button {
+            background: white;
+            color: black;
+            border: none;
+            padding: 18px 60px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+            border-radius: 12px;
+            display: none;
+        }
+
+        .submit-button.visible {
+            display: block;
+        }
+
+        .submit-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(255,255,255,0.2);
+        }
+
+        /* Feed Screen */
+        .feed-screen {
+            display: none;
+            padding-top: 80px;
+            max-width: 600px;
+            margin: 0 auto;
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-bottom: 40px;
+        }
+
+        .feed-screen.visible {
+            display: block;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 30px 0 20px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .section-count {
+            font-size: 14px;
+            opacity: 0.5;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .stat-box {
+            flex: 1;
+            background: rgba(255,255,255,0.03);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            opacity: 0.4;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .feed {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .feed-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 15px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .feed-header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .feed-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .feed-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            color: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .feed-user-info {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .feed-username {
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .feed-time {
+            font-size: 12px;
+            opacity: 0.4;
+        }
+
+        .feed-points {
+            background: rgba(255,215,0,0.15);
+            color: #FFD700;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .feed-image {
+            width: 100%;
+            aspect-ratio: 1;
+            background: rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .feed-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .placeholder-content {
+            text-align: center;
+            opacity: 0.3;
+        }
+
+        .placeholder-emoji {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .placeholder-text {
+            font-size: 13px;
+        }
+
+        .feed-footer {
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .like-btn {
+            background: none;
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .like-btn:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .like-btn .heart {
+            font-size: 22px;
+            transition: all 0.2s ease;
+        }
+
+        .like-btn.liked .heart {
+            color: #ff4444;
+        }
+
+        .like-btn .like-count {
+            font-weight: 600;
+            opacity: 0.6;
+        }
+
+        .like-btn.liked .like-count {
+            opacity: 1;
+        }
+
+        /* Success Overlay */
+        .success-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: black;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .success-overlay.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .success-content {
+            text-align: center;
+            animation: scaleIn 0.5s ease;
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .success-check {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .success-text {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .success-subtext {
+            font-size: 15px;
+            opacity: 0.5;
+            margin-bottom: 20px;
+        }
+
+        .points-earned {
+            background: rgba(255,215,0,0.15);
+            color: #FFD700;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 24px;
+            font-weight: 700;
+            display: inline-block;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0,0,0,0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding: 15px 20px;
+            display: none;
+            justify-content: space-around;
+            z-index: 100;
+        }
+
+        .bottom-nav.visible {
+            display: flex;
+        }
+
+        .nav-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            opacity: 0.5;
+            transition: all 0.2s ease;
+            padding: 8px 16px;
+            font-weight: 500;
+        }
+
+        .nav-btn.active {
+            opacity: 1;
+        }
+
+        .nav-btn:hover {
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            .challenge-title {
+                font-size: 36px;
+            }
+
+            .upload-trigger {
+                width: 240px;
+                height: 240px;
+            }
+
+            .timer-circle {
+                width: 160px;
+                height: 160px;
+            }
+
+            .time-remaining {
+                font-size: 28px;
+            }
+
+            .login-logo {
+                font-size: 48px;
+            }
+
+            .top-bar {
+                padding: 15px 20px;
+            }
+
+            .logo {
+                font-size: 24px;
+            }
+
+            .feed-screen {
+                padding-left: 15px;
+                padding-right: 15px;
+                padding-bottom: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-container">
+            <div class="login-logo">Blink.</div>
+            <div class="login-tagline">Daily photo challenges with your crew</div>
+            
+            <form class="login-form" onsubmit="handleLogin(event)">
+                <input id="loginEmail" type="email" class="input-field" placeholder="Email" required>
+                <input id="loginPassword" type="password" class="input-field" placeholder="Password" required>
+                <button type="submit" class="login-btn">Sign In</button>
+            </form>
+
+            <p id="loginError">Invalid email or password</p>
+
+            <div class="login-divider">OR</div>
+
+            <div class="signup-prompt">
+                Don't have an account?
+                <a class="signup-link" onclick="alert('Signup coming soon!')">Sign up</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Content -->
+    <div class="app-content" id="appContent">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="logo">Blink.</div>
+            <div class="top-bar-right">
+                <div class="points-display">
+                    <span>Points:</span>
+                    <span class="points-number" id="totalPoints">847</span>
+                </div>
+                <div class="streak">
+                    <span class="streak-num" id="streakNum">7</span>
+                    <span class="streak-label">day streak</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Challenge Screen -->
+        <div class="challenge-screen" id="challengeScreen">
+            <div class="challenge-display">
+                <div class="challenge-number">TODAY'S CHALLENGE</div>
+                <h1 class="challenge-title" id="challengeTitle">Take a photo with your best friend</h1>
+                
+                <div class="multiplier-info">
+                    <div class="multiplier-badge active" id="speedBadge">
+                        <span id="speedMultiplier">3× Speed</span>
+                    </div>
+                    <div class="multiplier-badge">
+                        <span id="streakMultiplier">1.7× Streak</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="timer-circle">
+                <div class="time-remaining" id="timeDisplay">14:23:45</div>
+                <div class="time-label">UNTIL MIDNIGHT</div>
+            </div>
+
+            <div class="action-area">
+                <div class="upload-trigger" id="uploadBox" onclick="document.getElementById('photoInput').click()">
+                    <span class="upload-text">Tap to upload</span>
+                    <img class="preview-image" id="photoPreview">
+                </div>
+                <button class="submit-button" id="submitBtn" onclick="completeChallenge()">
+                    Submit Entry
+                </button>
+            </div>
+        </div>
+
+        <!-- Feed Screen -->
+        <div class="feed-screen" id="feedScreen">
+            <div class="stats-bar">
+                <div class="stat-box">
+                    <div class="stat-number" id="yourPoints">847</div>
+                    <div class="stat-label">Your Points</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">2/12</div>
+                    <div class="stat-label">Rank</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">12</div>
+                    <div class="stat-label">Group Size</div>
+                </div>
+            </div>
+
+            <div class="section-header">
+                <h2 class="section-title">Today's Posts</h2>
+                <span class="section-count">8 completed</span>
+            </div>
+
+            <div class="feed" id="feedContainer">
+                <!-- Feed items will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav" id="bottomNav">
+            <button class="nav-btn active" onclick="switchScreen('challenge')">
+                <span>Today</span>
+            </button>
+            <button class="nav-btn" onclick="switchScreen('feed')">
+                <span>Feed</span>
+            </button>
+            <button class="nav-btn" onclick="alert('Leaderboard coming soon!')">
+                <span>Rankings</span>
+            </button>
+            <button class="nav-btn" onclick="alert('Profile coming soon!')">
+                <span>Profile</span>
+            </button>
+        </div>
+
+        <input type="file" id="photoInput" accept="image/*" onchange="handlePhoto(event)">
+
+        <!-- Success Overlay -->
+        <div class="success-overlay" id="successScreen">
+            <div class="success-content">
+                <div class="success-check">✓</div>
+                <div class="success-text">Challenge Complete!</div>
+                <div class="success-subtext">Points earned</div>
+                <div class="points-earned" id="pointsEarned">+127 pts</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentStreak = 7;
+        let totalPoints = 847;
+        let hasPostedToday = false;
+        let likedToday = new Set();
+
+        // Login handling
+        function handleLogin(event) {
+            event.preventDefault();
+            const VALID_EMAIL = "test@blink.app";
+            const VALID_PASSWORD = "blink123";
+
+            const email = document.getElementById("loginEmail").value.trim();
+            const password = document.getElementById("loginPassword").value.trim();
+            const error = document.getElementById("loginError");
+
+            if (email === VALID_EMAIL && password === VALID_PASSWORD) {
+                error.style.display = "none";
+                document.getElementById("loginScreen").style.display = "none";
+                document.getElementById("appContent").classList.add("visible");
+                document.getElementById("bottomNav").classList.add("visible");
+                initializeFeed();
+            } else {
+                error.style.display = "block";
+            }
+        }
+
+        // Timer and multipliers
+        function updateTimer() {
+            const now = new Date();
+            const midnight = new Date(now);
+            midnight.setHours(23, 59, 59, 999);
+            
+            const diff = midnight - now;
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            document.getElementById('timeDisplay').textContent = 
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            // Update speed multiplier based on current time
+            updateSpeedMultiplier();
+        }
+
+        function updateSpeedMultiplier() {
+            const now = new Date();
+            const hour = now.getHours();
+            let multiplier = 1;
+            let text = "1× Speed";
+            let isActive = false;
+
+            if (hour >= 10 && hour < 12) {
+                multiplier = 3;
+                text = "3× Speed Boost!";
+                isActive = true;
+            } else if (hour >= 12 && hour < 15) {
+                multiplier = 2;
+                text = "2× Speed";
+                isActive = true;
+            } else if (hour >= 15 && hour < 18) {
+                multiplier = 1.5;
+                text = "1.5× Speed";
+                isActive = true;
+            }
+
+            document.getElementById('speedMultiplier').textContent = text;
+            const badge = document.getElementById('speedBadge');
+            if (isActive) {
+                badge.classList.add('active');
+            } else {
+                badge.classList.remove('active');
+            }
+        }
+
+        setInterval(updateTimer, 1000);
+        updateTimer();
+
+        // Photo handling
+        function handlePhoto(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('photoPreview').src = e.target.result;
+                    document.getElementById('uploadBox').classList.add('has-photo');
+                    document.getElementById('submitBtn').classList.add('visible');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Calculate points
+        function calculatePoints() {
+            const now = new Date();
+            const hour = now.getHours();
+            
+            // Speed multiplier
+            let speedMult = 1;
+            if (hour >= 10 && hour < 12) speedMult = 3;
+            else if (hour >= 12 && hour < 15) speedMult = 2;
+            else if (hour >= 15 && hour < 18) speedMult = 1.5;
+            
+            // Streak multiplier (capped at 2x)
+            let streakMult = Math.min(1 + (currentStreak - 1) * 0.1, 2);
+            
+            // Simulate likes (random for demo)
+            const likes = Math.floor(Math.random() * 8) + 4; // 4-11 likes
+            const groupSize = 12;
+            const likePercent = (likes / groupSize) * 100;
+            
+            // Percentage bonus
+            let percentBonus = 1;
+            if (likePercent >= 70) percentBonus = 1.5;
+            else if (likePercent >= 40) percentBonus = 1.2;
+            
+            const basePoints = 5;
+            const points = Math.round(likes * speedMult * streakMult * percentBonus + basePoints);
+            
+            return { points, likes };
+        }
+
+        // Complete challenge
+        function completeChallenge() {
+            const { points, likes } = calculatePoints();
+            
+            document.getElementById('pointsEarned').textContent = `+${points} pts`;
+            document.getElementById('successScreen').classList.add('show');
+            
+            // Update stats
+            currentStreak++;
+            totalPoints += points;
+            hasPostedToday = true;
+            
+            document.getElementById('streakNum').textContent = currentStreak;
+            document.getElementById('totalPoints').textContent = totalPoints;
+            document.getElementById('yourPoints').textContent = totalPoints;
+            
+            // Update streak multiplier display
+            const streakMult = Math.min(1 + (currentStreak - 1) * 0.1, 2).toFixed(1);
+            document.getElementById('streakMultiplier').textContent = `${streakMult}× Streak`;
+            
+            setTimeout(() => {
+                document.getElementById('successScreen').classList.remove('show');
+                switchScreen('feed');
+                
+                // Add user's post to feed
+                addUserPostToFeed(points);
+            }, 2500);
+        }
+
+        // Screen switching
+        function switchScreen(screen) {
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            
+            if (screen === 'challenge') {
+                document.getElementById('challengeScreen').style.display = 'flex';
+                document.getElementById('feedScreen').classList.remove('visible');
+                document.querySelectorAll('.nav-btn')[0].classList.add('active');
+            } else if (screen === 'feed') {
+                document.getElementById('challengeScreen').style.display = 'none';
+                document.getElementById('feedScreen').classList.add('visible');
+                document.querySelectorAll('.nav-btn')[1].classList.add('active');
+            }
+        }
+
+        // Feed functionality
+        function initializeFeed() {
+            const feedData = [
+                { name: 'Alexia', avatar: 'A', time: '2h ago', points: 145, likes: 8, emoji: '👥' },
+                { name: 'Carter', avatar: 'C', time: '4h ago', points: 132, likes: 7, emoji: '🤝' },
+                { name: 'Mylie', avatar: 'M', time: '6h ago', points: 98, likes: 6, emoji: '💙' },
+                { name: 'Jordan', avatar: 'J', time: '8h ago', points: 87, likes: 5, emoji: '✨' },
+                { name: 'Sam', avatar: 'S', time: '10h ago', points: 76, likes: 4, emoji: '🎉' },
+                { name: 'Taylor', avatar: 'T', time: '11h ago', points: 65, likes: 5, emoji: '🌟' },
+                { name: 'Alex', avatar: 'AL', time: '12h ago', points: 54, likes: 3, emoji: '💫' },
+                { name: 'Morgan', avatar: 'MO', time: '13h ago', points: 48, likes: 4, emoji: '🎨' }
+            ];
+
+            const feedContainer = document.getElementById('feedContainer');
+            feedContainer.innerHTML = '';
+
+            feedData.forEach((user, index) => {
+                const feedItem = createFeedItem(user, index);
+                feedContainer.appendChild(feedItem);
+            });
+        }
+
+        function createFeedItem(user, index) {
+            const item = document.createElement('div');
+            item.className = 'feed-item';
+            
+            item.innerHTML = `
+                <div class="feed-header">
+                    <div class="feed-user">
+                        <div class="feed-avatar">${user.avatar}</div>
+                        <div class="feed-user-info">
+                            <div class="feed-username">${user.name}</div>
+                            <div class="feed-time">${user.time}</div>
+                        </div>
+                    </div>
+                    <div class="feed-points">+${user.points} pts</div>
+                </div>
+                <div class="feed-image">
+                    <div class="placeholder-content">
+                        <div class="placeholder-emoji">${user.emoji}</div>
+                        <div class="placeholder-text">Challenge completed</div>
+                    </div>
+                </div>
+                <div class="feed-footer">
+                    <button class="like-btn" onclick="toggleLike(this, '${user.name}')">
+                        <span class="heart">♡</span>
+                        <span class="like-count">${user.likes}</span>
+                    </button>
+                </div>
+            `;
+
+            return item;
+        }
+
+        function addUserPostToFeed(points) {
+            const feedContainer = document.getElementById('feedContainer');
+            const userPost = createFeedItem({
+                name: 'You',
+                avatar: 'You',
+                time: 'Just now',
+                points: points,
+                likes: 0,
+                emoji: '✓'
+            }, -1);
+
+            feedContainer.insertBefore(userPost, feedContainer.firstChild);
+        }
+
+        function toggleLike(btn, username) {
+            const isLiked = btn.classList.contains('liked');
+            const heart = btn.querySelector('.heart');
+            const countElement = btn.querySelector('.like-count');
+            let count = parseInt(countElement.textContent);
+            
+            if (isLiked) {
+                btn.classList.remove('liked');
+                heart.textContent = '♡';
+                count--;
+                likedToday.delete(username);
+            } else {
+                btn.classList.add('liked');
+                heart.textContent = '♥';
+                count++;
+                likedToday.add(username);
+                
+                // Animation
+                btn.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    btn.style.transform = 'scale(1)';
+                }, 200);
+            }
+            
+            countElement.textContent = count;
+        }
+
+        // Random challenges
+        const challenges = [
+            "Take a photo with your best friend",
+            "Show us your lunch",
+            "Capture your current view",
+            "Photo of something blue",
+            "Your favorite spot",
+            "Something that made you smile today",
+            "Your workspace",
+            "A random act of kindness"
+        ];
+
+        const randomChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+        document.getElementById('challengeTitle').textContent = randomChallenge;
+    </script>
+</body>
+</html>
